@@ -292,26 +292,18 @@ watch(() => props.src, (newVal) => {
 
 <style scoped>
 .particle-container {
-  width: 100%;
-  height: 100%;
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   overflow: hidden;
-  background-color: #051e3e; /* Deep blue base color behind dots to avoid gaps looking like holes? Or keep transparent? */
-  /* Actually user wants parallax effect images converted to dots. 
-     If it's transparent, we see whatever is behind. 
-     Let's keep it transparent or user-defined. The parent section usually has a background color.
-     We'll set a default dark bg to match the theme if transparency is an issue.
-  */
-  background-color: transparent; 
+  background: transparent;
 }
 
 .particle-canvas {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   display: block;
-  /* Ensure interaction */
   pointer-events: auto;
 }
 </style>

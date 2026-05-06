@@ -9,48 +9,50 @@ import ambientSound from '@/assets/sound/ambient_fit_intro.mp3'
 
 const muted = ref(false)
 const started = ref(false)
+const blocked = ref(false) // autoplay was blocked — show hint
 let audio = null
+
+// Valid user-activation events (scroll does NOT count in any browser)
+const ACTIVATION_EVENTS = ['pointerdown', 'keydown']
 
 function startAudio() {
   if (started.value) return
   audio.play().then(() => {
     started.value = true
+    blocked.value = false
   }).catch(() => {})
 }
 
 function toggleMute() {
   muted.value = !muted.value
   audio.muted = muted.value
+  // If muted was blocking start (some browsers allow muted autoplay), unmuting triggers play
+  if (!muted.value && !started.value) startAudio()
 }
 
 function onFirstInteraction() {
   startAudio()
-  window.removeEventListener('click', onFirstInteraction)
-  window.removeEventListener('scroll', onFirstInteraction)
-  window.removeEventListener('keydown', onFirstInteraction)
+  ACTIVATION_EVENTS.forEach(e => window.removeEventListener(e, onFirstInteraction))
 }
 
 onMounted(() => {
   audio = new Audio(ambientSound)
   audio.loop = true
   audio.volume = 0.35
+  audio.preload = 'auto'
 
-  // Try immediate autoplay
   audio.play().then(() => {
     started.value = true
   }).catch(() => {
-    // Blocked by browser policy — start on first interaction
-    window.addEventListener('click', onFirstInteraction, { once: true })
-    window.addEventListener('scroll', onFirstInteraction, { once: true })
-    window.addEventListener('keydown', onFirstInteraction, { once: true })
+    // Blocked — wait for a real user-activation gesture
+    blocked.value = true
+    ACTIVATION_EVENTS.forEach(e => window.addEventListener(e, onFirstInteraction, { once: true }))
   })
 })
 
 onUnmounted(() => {
   audio?.pause()
-  window.removeEventListener('click', onFirstInteraction)
-  window.removeEventListener('scroll', onFirstInteraction)
-  window.removeEventListener('keydown', onFirstInteraction)
+  ACTIVATION_EVENTS.forEach(e => window.removeEventListener(e, onFirstInteraction))
 })
 </script>
 
@@ -59,6 +61,10 @@ onUnmounted(() => {
     <a href="/" class="logo-link" aria-label="SEEDE XR — Home">
       <img :src="seedeLogo" alt="SEEDE XR" class="site-logo" />
     </a>
+
+    <Transition name="hint-fade">
+      <span v-if="blocked && !started" class="sound-hint" aria-live="polite">tap anywhere for audio</span>
+    </Transition>
 
     <button class="sound-btn" @click="toggleMute" :aria-label="muted ? 'Unmute' : 'Mute'">
       <!-- Sound on -->
@@ -133,10 +139,25 @@ onUnmounted(() => {
   color: #fff;
 }
 
+/* Autoplay blocked hint */
+.sound-hint {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+.hint-fade-enter-active,
+.hint-fade-leave-active { transition: opacity 0.5s ease; }
+.hint-fade-enter-from,
+.hint-fade-leave-to { opacity: 0; }
+
 @media (max-width: 480px) {
   .site-header { padding: 1rem 1.25rem; }
   .site-logo { height: 28px; }
   .sound-btn { width: 32px; height: 32px; }
   .sound-btn svg { width: 15px; height: 15px; }
+  .sound-hint { display: none; }
 }
 </style>

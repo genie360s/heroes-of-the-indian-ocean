@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
 const props = defineProps({
   src: {
@@ -252,28 +252,45 @@ function handleGlobalMouseMove(e) {
   }
 }
 
-onMounted(() => {
+let ro = null
+
+onMounted(async () => {
   const canvas = canvasRef.value
   ctx = canvas.getContext('2d', { willReadFrequently: true })
-  
-  // Set initial size
-  width = canvas.width = canvas.parentElement.offsetWidth
-  height = canvas.height = canvas.parentElement.offsetHeight
 
-  // Load Image
+  // Wait for layout to settle before reading dimensions
+  await nextTick()
+
+  function readSize() {
+    const el = canvas.parentElement
+    width  = canvas.width  = el.offsetWidth  || el.clientWidth  || window.innerWidth
+    height = canvas.height = el.offsetHeight || el.clientHeight || window.innerHeight
+  }
+
+  readSize()
+
+  // Load image then start
   image.src = props.src
   image.onload = () => {
+    readSize() // re-read in case layout changed while image was loading
     initParticles()
     animate()
   }
 
+  // ResizeObserver re-initialises particles whenever the container is resized
+  ro = new ResizeObserver(() => {
+    readSize()
+    if (image.complete && width > 0 && height > 0) initParticles()
+  })
+  ro.observe(canvas.parentElement)
+
   window.addEventListener('resize', handleResize)
-  // Listen to window mouse move to capture events through overlays
   window.addEventListener('mousemove', handleGlobalMouseMove)
 })
 
 onUnmounted(() => {
   cancelAnimationFrame(animationId)
+  ro?.disconnect()
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('mousemove', handleGlobalMouseMove)
 })
